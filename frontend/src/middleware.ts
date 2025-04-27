@@ -32,7 +32,7 @@ const PUBLIC_ROUTES = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get auth token and user type from cookies - do this early to check session status
+  // Get auth token and user type from cookies
   const token = request.cookies.get('authToken')?.value;
   const userType = request.cookies.get('userType')?.value?.toLowerCase() as UserType;
   const userId = request.cookies.get('userId')?.value;
@@ -47,16 +47,34 @@ export function middleware(request: NextRequest) {
     }
   }
   
- 
-  // Get auth token and user type from cookies
-  const token = request.cookies.get('authToken')?.value;
-  const userType = request.cookies.get('userType')?.value?.toLowerCase() as UserType;
-  const userId = request.cookies.get('userId')?.value;
-  
-  
   // If the user is at the root, redirect them to their appropriate dashboard
-  if (pathname === '/') {
+  if (pathname === '/' && userType) {
     const dashboardUrl = `/${userType}`;
     return NextResponse.redirect(new URL(dashboardUrl, request.url));
   }
   
+  // Check if trying to access a protected route
+  const routePrefix = '/' + pathname.split('/')[1]; // Get first part of path
+  const requiredRole = PROTECTED_ROUTES[routePrefix];
+  
+  // If this is a protected route, check permissions
+  if (requiredRole) {
+    // If no token or wrong user type, redirect to unauthorized
+    if (!token || userType !== requiredRole) {
+      console.log(`Unauthorized access attempt to ${pathname}`);
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  }
+  
+  // Check if it's a public route
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  
+  // If not public and no token, redirect to sign-in
+  if (!isPublicRoute && !token) {
+    return NextResponse.redirect(new URL('/sign-in', request.url));
+  }
+  
+  return NextResponse.next();
+}

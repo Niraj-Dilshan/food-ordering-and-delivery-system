@@ -19,7 +19,7 @@ services:
       # - order-service
       # - menu-service
       # - cart-service
-      # - delivery-service
+      - delivery-service
       # - notification-service
     restart: unless-stopped
     networks:
@@ -64,6 +64,18 @@ services:
     networks:
       - nomnom-network
 
+  # Delivery Service
+  delivery-service:
+    build:
+      context: ./delivery-service
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./delivery-service/.env
+    restart: unless-stopped
+    networks:
+      - nomnom-network
 
   # Cart Service
 

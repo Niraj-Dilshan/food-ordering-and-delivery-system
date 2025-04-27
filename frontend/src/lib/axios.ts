@@ -10,6 +10,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Include cookies with cross-origin requests
 });
 
 // Request interceptor to attach the auth token
@@ -23,10 +24,22 @@ api.interceptors.request.use((config) => {
     }
   }
   
+  // Always include Accept header for JSON responses
+  if (config.headers) {
+    config.headers.Accept = 'application/json';
+  }
+  
+  console.log('API Request:', {
+    method: config.method,
+    url: config.url,
+    baseURL: config.baseURL,
+    data: config.data
+  });
+  
   return config;
 }, (error) => {
   // Handle request errors
-  console.error('Request error:', error);
+  console.error('Request interceptor error:', error);
   return Promise.reject(error);
 });
 

@@ -91,6 +91,17 @@ export const userService = {
     return response.data;
   },
 
+  // Add the getUserById method
+  getUserById: async (userId: string): Promise<User> => {
+    try {
+      const response = await api.get<User>(`/user-service/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user by ID:', error);
+      throw error;
+    }
+  },
+
   // User login
   login: async (email: string, password: string): Promise<any> => {
     try {

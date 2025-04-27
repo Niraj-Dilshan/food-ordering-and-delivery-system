@@ -12,6 +12,14 @@ import { Input } from "@/components/ui/input"
 import { Loader2, Search, Star } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DeliveryMap } from "@/components/ui/delivery-map"
+import { getDeliveriesByCustomerId, IDelivery } from "@/services/delivery-service"
+import { getCookie } from "cookies-next"
+
+// Item interface
+interface OrderItem {
+  name: string;
+  quantity: number;
+}
 
 // Sample data
 const SAMPLE_ORDERS = [
@@ -123,21 +131,98 @@ const SAMPLE_ORDERS = [
 ]
 
 export default function CustomerOrdersPage() {
-  const [orders, setOrders] = useState(SAMPLE_ORDERS)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [orders, setOrders] = useState<any[]>([])
   const [activeOrder, setActiveOrder] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [showRating, setShowRating] = useState(false)
   const [rating, setRating] = useState(0)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string>("Customer")
+
+  // Get user ID from cookies or localStorage
+  useEffect(() => {
+    // Try to get from cookie first (for SSR)
+    const cookieUserId = getCookie('userId')?.toString();
+    
+    // Otherwise try localStorage (client-side only)
+    const localStorageUserId = typeof window !== 'undefined' 
+      ? localStorage.getItem('userId')
+      : null;
+    
+    setUserId(cookieUserId || localStorageUserId);
+    
+    // Get user name if available
+    if (typeof window !== 'undefined') {
+      const firstName = localStorage.getItem('firstName');
+      const lastName = localStorage.getItem('lastName');
+      if (firstName || lastName) {
+        setUserName(`${firstName || ''} ${lastName || ''}`.trim());
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
+    const fetchOrders = async () => {
+      if (userId) {
+        try {
+          const customerId = userId;
+          const data = await getDeliveriesByCustomerId(customerId);
+          
+          // Transform data to match the UI requirements
+          const transformedData = data.map((delivery: IDelivery) => {
+            return {
+              id: delivery._id || "",
+              status: delivery.status as DeliveryStatus,
+              orderId: delivery.orderId,
+              restaurant: {
+                name: "Restaurant Name", // This should come from another API using delivery.restaurantId
+                address: "Restaurant Address",
+                phone: "Restaurant Phone",
+                location: { lat: 40.7128, lng: -74.006 }, // Default location, should be replaced
+              },
+              customer: {
+                name: userName || "Customer",
+                address: "Customer Address",
+                phone: "Customer Phone",
+                location: { lat: 40.7282, lng: -73.9942 },
+              },
+              driver: delivery.driverId ? {
+                name: "Driver Name", // This should come from another API using delivery.driverId
+                phone: "Driver Phone",
+                vehicle: "Vehicle Info",
+              } : undefined,
+              driverLocation: { lat: 40.72, lng: -74.0 },
+              estimatedTime: "15 min",
+              distance: "2.3 mi",
+              amount: "24.50",
+              items: [
+                { name: "Item 1", quantity: 1 },
+                { name: "Item 2", quantity: 1 },
+              ],
+              createdAt: delivery.createdAt,
+              timestamps: {
+                createdAt: delivery.createdAt,
+                acceptedAt: delivery.acceptedAt,
+                deliveredAt: delivery.deliveredAt,
+              },
+            }
+          })
+          
+          setOrders(transformedData.length > 0 ? transformedData : SAMPLE_ORDERS)
+        } catch (error) {
+          console.error("Failed to fetch orders:", error)
+          setOrders(SAMPLE_ORDERS) // Fallback to sample data
+        }
+      } else {
+        setOrders(SAMPLE_ORDERS) // Fallback to sample data
+      }
       setLoading(false)
-    }, 1500)
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    fetchOrders()
+  }, [userId, userName])
 
   const handleViewDetails = (id: string) => {
     setActiveOrder(id)
@@ -146,7 +231,7 @@ export default function CustomerOrdersPage() {
   const filteredOrders = orders.filter(
     (order) =>
       order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      (order.restaurant.name && order.restaurant.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const activeOrderData = orders.find((order) => order.id === activeOrder)
@@ -167,7 +252,7 @@ export default function CustomerOrdersPage() {
         <div className="flex h-[80vh] items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading orders...</p>
+            <p className="text-muted-foreground">Loading orders...</p>
           </div>
         </div>
       </>
@@ -283,7 +368,7 @@ export default function CustomerOrdersPage() {
                 </div>
                 <div className="p-4">
                   <ul className="space-y-2">
-                    {activeOrderData.items.map((item, index) => (
+                    {activeOrderData.items.map((item: OrderItem, index: number) => (
                       <li key={index} className="flex justify-between text-sm">
                         <span>{item.name}</span>
                         <span>x{item.quantity}</span>

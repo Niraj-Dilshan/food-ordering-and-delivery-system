@@ -10,174 +10,208 @@ import { Input } from "@/components/ui/input"
 import { Loader2, Search } from "lucide-react"
 import type { DeliveryStatus } from "@/components/ui/status-badge"
 import { DeliveryMap } from "@/components/ui/delivery-map"
+import { getDeliveriesByRestaurantId, updateDelivery, IDelivery, getDeliveryWithOrderDetails } from "@/services/delivery-service"
+import { userService, User } from "@/services/user-service"
+import { getCookie } from "cookies-next"
 
-// Sample data
-const SAMPLE_DELIVERIES = [
-  {
-    id: "del-001",
-    status: "ACCEPTED" as DeliveryStatus,
-    orderId: "ORD-1234",
-    restaurant: {
-      name: "Burger Palace",
-      address: "123 Main St, New York, NY",
-      phone: "555-123-4567",
-      location: { lat: 40.7128, lng: -74.006 },
-    },
-    customer: {
-      name: "John Smith",
-      address: "456 Park Ave, New York, NY",
-      phone: "555-987-6543",
-      location: { lat: 40.7282, lng: -73.9942 },
-    },
-    driver: {
-      name: "Michael Johnson",
-      phone: "555-555-5555",
-      vehicle: "Honda Civic (ABC-1234)",
-    },
-    driverLocation: { lat: 40.72, lng: -74.0 },
-    estimatedTime: "15 min",
-    distance: "2.3 mi",
-    amount: "8.50",
-    items: [
-      { name: "Cheeseburger", quantity: 2 },
-      { name: "Fries", quantity: 1 },
-      { name: "Soda", quantity: 2 },
-    ],
-    createdAt: new Date().toISOString(),
-    timestamps: {
-      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-      acceptedAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    },
-  },
-  {
-    id: "del-002",
-    status: "PENDING" as DeliveryStatus,
-    orderId: "ORD-5678",
-    restaurant: {
-      name: "Burger Palace",
-      address: "123 Main St, New York, NY",
-      phone: "555-123-4567",
-      location: { lat: 40.7128, lng: -74.006 },
-    },
-    customer: {
-      name: "Emily Davis",
-      address: "321 5th Ave, New York, NY",
-      phone: "555-444-5555",
-      location: { lat: 40.7448, lng: -73.9867 },
-    },
-    driverLocation: { lat: 40.7128, lng: -74.006 },
-    estimatedTime: "10 min",
-    distance: "1.8 mi",
-    amount: "9.25",
-    items: [
-      { name: "Veggie Burger", quantity: 1 },
-      { name: "Onion Rings", quantity: 1 },
-      { name: "Milkshake", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    timestamps: {
-      createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    },
-  },
-  {
-    id: "del-003",
-    status: "IN_PROGRESS" as DeliveryStatus,
-    orderId: "ORD-9012",
-    restaurant: {
-      name: "Burger Palace",
-      address: "123 Main St, New York, NY",
-      phone: "555-123-4567",
-      location: { lat: 40.7128, lng: -74.006 },
-    },
-    customer: {
-      name: "Sarah Johnson",
-      address: "890 Hudson St, New York, NY",
-      phone: "555-777-8888",
-      location: { lat: 40.7303, lng: -74.0054 },
-    },
-    driver: {
-      name: "David Brown",
-      phone: "555-666-7777",
-      vehicle: "Toyota Prius (XYZ-5678)",
-    },
-    driverLocation: { lat: 40.722, lng: -74.003 },
-    estimatedTime: "5 min",
-    distance: "1.2 mi",
-    amount: "10.75",
-    items: [
-      { name: "Double Cheeseburger", quantity: 1 },
-      { name: "Chicken Nuggets", quantity: 1 },
-      { name: "Fries", quantity: 1 },
-      { name: "Soda", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-    timestamps: {
-      createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-      acceptedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-      pickedUpAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-    },
-  },
-  {
-    id: "del-004",
-    status: "DELIVERED" as DeliveryStatus,
-    orderId: "ORD-3456",
-    restaurant: {
-      name: "Burger Palace",
-      address: "123 Main St, New York, NY",
-      phone: "555-123-4567",
-      location: { lat: 40.7128, lng: -74.006 },
-    },
-    customer: {
-      name: "Robert Wilson",
-      address: "567 Madison Ave, New York, NY",
-      phone: "555-222-3333",
-      location: { lat: 40.7623, lng: -73.9718 },
-    },
-    driver: {
-      name: "Jennifer Lee",
-      phone: "555-888-9999",
-      vehicle: "Honda Accord (DEF-5678)",
-    },
-    driverLocation: { lat: 40.7623, lng: -73.9718 },
-    estimatedTime: "0 min",
-    distance: "3.5 mi",
-    amount: "12.50",
-    items: [
-      { name: "Bacon Burger", quantity: 1 },
-      { name: "Sweet Potato Fries", quantity: 1 },
-      { name: "Chocolate Shake", quantity: 1 },
-    ],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    timestamps: {
-      createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-      acceptedAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
-      pickedUpAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-      deliveredAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    },
-  },
-]
+// Item interface
+interface OrderItem {
+  name: string;
+  quantity: number;
+}
+
+// Extended User interface to include restaurant-specific fields
+interface RestaurantUser extends User {
+  restaurantName?: string;
+  restaurantAddress?: string;
+  location?: { lat: number; lng: number };
+}
+
+// Extended User interface to include driver-specific fields
+interface DriverUser extends User {
+  vehicleNumber?: string;
+}
+
+// Order interface for type checking
+interface OrderData {
+  customerId: string;
+  customerDetails?: {
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  cartItems?: Array<{
+    itemName?: string;
+    quantity?: number;
+  }>;
+}
 
 export default function RestaurantDeliveriesPage() {
-  const [deliveries, setDeliveries] = useState(SAMPLE_DELIVERIES)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deliveries, setDeliveries] = useState<any[]>([])
   const [activeDelivery, setActiveDelivery] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Get user ID from cookies or localStorage
+  useEffect(() => {
+    // Try to get from cookie first (for SSR)
+    const cookieUserId = getCookie('userId')?.toString();
+    
+    // Otherwise try localStorage (client-side only)
+    const localStorageUserId = typeof window !== 'undefined' 
+      ? localStorage.getItem('userId')
+      : null;
+    
+    setUserId(cookieUserId || localStorageUserId);
+  }, []);
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
+    const fetchDeliveries = async () => {
+      if (userId) {
+        try {
+          const restaurantId = userId;
+          let data: IDelivery[] = [];
+          
+          try {
+            data = await getDeliveriesByRestaurantId(restaurantId);
+          } catch (error) {
+            console.error("Error fetching deliveries from API:", error);
+            
+            // Fallback to empty array if network error occurs
+            // Show a notification or toast here if you have a UI component for it
+            // For example: toast.error("Could not connect to delivery service");
+          }
+          
+          // Transform data to match the UI requirements
+          const transformedDataPromises = data.map(async (delivery: IDelivery) => {
+            let restaurantInfo = {
+              name: "Restaurant Name",
+              address: "Restaurant Address",
+              phone: "Restaurant Phone",
+              location: { lat: 40.7128, lng: -74.006 },
+            };
+            
+            let customerInfo = {
+              name: "Customer Name",
+              address: "Customer Address",
+              phone: "Customer Phone",
+              location: { lat: 40.7282, lng: -73.9942 },
+            };
+            
+            let driverInfo = undefined;
+            let orderItems = [
+              { name: "Item 1", quantity: 1 },
+              { name: "Item 2", quantity: 1 },
+            ];
+            
+            try {
+              // Get restaurant info
+              const restaurant = await userService.getUserById(restaurantId) as RestaurantUser;
+              if (restaurant) {
+                restaurantInfo = {
+                  name: restaurant.restaurantName || `${restaurant.firstName} ${restaurant.lastName}'s Restaurant`,
+                  address: restaurant.restaurantAddress || "Address not available",
+                  phone: restaurant.phone || "Phone not available",
+                  location: restaurant.location || { lat: 40.7128, lng: -74.006 },
+                };
+              }
+              
+              // Get order details to fetch customer and items
+              const orderDetails = await getDeliveryWithOrderDetails(delivery._id || "");
+              if (orderDetails && orderDetails.order) {
+                const order = orderDetails.order as OrderData;
+                
+                // Get customer info
+                if (order.customerId) {
+                  const customer = await userService.getUserById(order.customerId);
+                  if (customer) {
+                    customerInfo = {
+                      name: `${customer.firstName} ${customer.lastName}`,
+                      address: order.customerDetails?.address || "Customer Address",
+                      phone: customer.phone || "Phone not available",
+                      location: { 
+                        lat: order.customerDetails?.latitude || 40.7282, 
+                        lng: order.customerDetails?.longitude || -73.9942 
+                      },
+                    };
+                  }
+                }
+                
+                // Get order items
+                if (order.cartItems && Array.isArray(order.cartItems)) {
+                  orderItems = order.cartItems.map((item) => ({
+                    name: item.itemName || "Unknown Item",
+                    quantity: item.quantity || 1,
+                  }));
+                }
+              }
+              
+              // Get driver info if assigned
+              if (delivery.driverId) {
+                const driver = await userService.getUserById(delivery.driverId) as DriverUser;
+                if (driver) {
+                  driverInfo = {
+                    name: `${driver.firstName} ${driver.lastName}`,
+                    phone: driver.phone || "Phone not available",
+                    vehicle: driver.vehicleNumber || "Vehicle info not available",
+                  };
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching additional delivery details:", error);
+              // Fallback to default values already set
+            }
+            
+            return {
+              id: delivery._id,
+              status: delivery.status as DeliveryStatus,
+              orderId: delivery.orderId,
+              restaurant: restaurantInfo,
+              customer: customerInfo,
+              driver: delivery.driverId ? driverInfo : undefined,
+              driverLocation: { lat: 40.72, lng: -74.0 }, // This would need real-time location
+              estimatedTime: "15 min", // Calculate based on distance
+              distance: "2.3 mi", // Calculate using coordinates
+              amount: "8.50", // Get from order
+              items: orderItems,
+              createdAt: delivery.createdAt,
+              timestamps: {
+                createdAt: delivery.createdAt,
+                acceptedAt: delivery.acceptedAt,
+                deliveredAt: delivery.deliveredAt,
+              },
+            };
+          });
+          
+          const transformedData = await Promise.all(transformedDataPromises);
+          setDeliveries(transformedData);
+        } catch (error) {
+          console.error("Failed to fetch deliveries:", error)
+          setDeliveries([]) // Empty array instead of sample data
+        }
+      } else {
+        setDeliveries([]) // Empty array instead of sample data
+      }
       setLoading(false)
-    }, 1500)
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    fetchDeliveries()
+  }, [userId])
 
-  const handleHandToDriver = (id: string) => {
-    setDeliveries(
-      deliveries.map((delivery) =>
-        delivery.id === id ? { ...delivery, status: "IN_PROGRESS" as DeliveryStatus } : delivery,
-      ),
-    )
+  const handleHandToDriver = async (id: string) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const updatedDelivery = await updateDelivery(id, { status: "IN_PROGRESS" })
+      setDeliveries(
+        deliveries.map((delivery) =>
+          delivery.id === id ? { ...delivery, status: "IN_PROGRESS" as DeliveryStatus } : delivery,
+        ),
+      )
+    } catch (error) {
+      console.error("Failed to update delivery:", error)
+    }
   }
 
   const handleViewDetails = (id: string) => {
@@ -187,7 +221,7 @@ export default function RestaurantDeliveriesPage() {
   const filteredDeliveries = deliveries.filter(
     (delivery) =>
       delivery.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      delivery.customer.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      (delivery.customer.name && delivery.customer.name.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const activeDeliveryData = deliveries.find((delivery) => delivery.id === activeDelivery)
@@ -198,7 +232,7 @@ export default function RestaurantDeliveriesPage() {
         <div className="flex h-[80vh] items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading deliveries...</p>
+            <p className="text-muted-foreground">Loading deliveries...</p>
           </div>
         </div>
       </>
@@ -284,7 +318,7 @@ export default function RestaurantDeliveriesPage() {
                 </div>
                 <div className="p-4">
                   <ul className="space-y-2">
-                    {activeDeliveryData.items.map((item, index) => (
+                    {activeDeliveryData.items.map((item: OrderItem, index: number) => (
                       <li key={index} className="flex justify-between text-sm">
                         <span>{item.name}</span>
                         <span>x{item.quantity}</span>
